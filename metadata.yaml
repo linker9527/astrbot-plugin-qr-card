@@ -1,0 +1,28 @@
+name: astrbot_plugin_qr_card
+display_name: 二维码卡片(QR Card)
+author: linker9527
+desc: /qr 多模式生成二维码（文本/网页/WiFi/电话/短信/邮件/名片/位置）；引用含二维码图片的消息发送 /unqr 解析内容。
+short_desc: 多模式二维码生成与解析
+version: 1.0.0
+repo: ""
+help: |
+  指令（默认唤醒前缀 /）：
+
+  ■ 生成二维码 /qr（发送 /qr help 可随时查看）
+    /qr <内容>                  纯文本二维码（默认）
+    /qr <内容> txt              显式文本模式，如 /qr 123456 txt
+    /qr <网址> page             网页二维码，自动补 https://，如 /qr pan.baidu.com/s/xxxx page
+    /qr wifi <名称> [密码] [hidden]
+                                WiFi 二维码，扫码即可连接；不填密码为开放网络；名称/密码含空格用引号包住；
+                                末尾加 hidden 标记为隐藏 SSID 网络（不广播名称，手机主动搜索）
+    /qr tel <电话号码>          拨打电话二维码
+    /qr sms <号码> [短信内容]   发短信二维码
+    /qr mail <邮箱> [主题] [正文]   发邮件二维码
+    /qr card <姓名> <电话> [邮箱] [单位]   名片二维码
+    /qr geo <纬度> <经度>       位置二维码
+
+  ■ 解析二维码 /unqr
+    引用一条包含二维码图片的消息发送 /unqr，机器人解析出内容。
+    别名：解二维码、识别二维码。也支持直接发「图片 + unqr」。
+
+  生成样式（前景色/背景色/像素块大小/留白）可在插件配置里调整。

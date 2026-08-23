@@ -1,0 +1,32 @@
+{
+  "box_size": {
+    "type": "int",
+    "description": "二维码像素块大小",
+    "hint": "每个小格子的像素数，越大图越清晰，范围 2~30",
+    "default": 10
+  },
+  "border": {
+    "type": "int",
+    "description": "四周留白（格数）",
+    "hint": "二维码周围的空白边框宽度，范围 0~10",
+    "default": 4
+  },
+  "fill_color": {
+    "type": "string",
+    "description": "前景色",
+    "hint": "二维码点的颜色，如 #000000 或 black",
+    "default": "#000000"
+  },
+  "back_color": {
+    "type": "string",
+    "description": "背景色",
+    "hint": "二维码背景颜色，如 #ffffff 或 white",
+    "default": "#ffffff"
+  },
+  "result_prefix": {
+    "type": "string",
+    "description": "解码结果前缀",
+    "hint": "/unqr 解析结果前面显示的文字",
+    "default": "二维码内容："
+  }
+}
