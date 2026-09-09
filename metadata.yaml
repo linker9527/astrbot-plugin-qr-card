@@ -3,7 +3,7 @@ display_name: 二维码卡片(QR Card)
 author: linker9527
 desc: /qr 多模式生成二维码（文本/网页/WiFi/电话/短信/邮件/名片/位置）；引用含二维码图片的消息发送 /unqr 解析内容。
 short_desc: 多模式二维码生成与解析
-version: 1.0.0
+version: 1.0.1
 repo: ""
 help: |
   指令（默认唤醒前缀 /）：

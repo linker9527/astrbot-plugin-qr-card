@@ -183,7 +183,7 @@ def decode_qr_file(path: str) -> List[str]:
     "二维码卡片",
     "linker9527",
     "/qr 多模式生成二维码（文本/网页/WiFi/电话/短信/邮件/名片/位置）；引用图片发 /unqr 解析",
-    "1.0.0",
+    "1.0.1",
 )
 class QrCardPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig | dict | None = None):
