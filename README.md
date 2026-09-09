@@ -48,7 +48,7 @@ WiFi 示例：
 - 机器人解析出二维码内容并发送
 - 也支持直接发送「图片 + unqr」（同一条消息里先发图片再跟指令）
 - 别名：`解二维码`、`识别二维码`
-- 依赖缺失时，发送 `/unqr download` 可一键安装解码依赖（调用当前 AstrBot 环境的 pip）
+- 解码依赖已声明在 `requirements.txt`，由 AstrBot 正常依赖机制安装，无需在运行时安装
 
 ## 配置
 
@@ -65,9 +65,8 @@ WiFi 示例：
 ## 安装
 
 1. 把本文件夹放到 AstrBot 的 `data/plugins/` 下（或通过插件市场安装）
-2. 依赖：`qrcode[pil]`（生成）、`zxing-cpp`（解码）。通常 AstrBot 会自动装 qrcode，zxing-cpp 可能需手动装
-3. 如果 `/unqr` 提示识别失败，先发送 `/unqr download` 一键补装解码依赖
-4. 重载插件即可使用
+2. 依赖（`qrcode[pil]`、`zxing-cpp`、`pyzbar`、`opencv-python-headless`）已声明在 `requirements.txt`，由 AstrBot 的依赖机制自动安装
+3. 重载插件即可使用
 
 ## 说明
 

@@ -31,9 +31,6 @@ from astrbot.api import AstrBotConfig, logger
 from astrbot.api.event import AstrMessageEvent, filter
 from astrbot.api.message_components import Image as CompImage, Plain as CompPlain, Reply as CompReply
 from astrbot.api.star import Context, Star, register
-import subprocess
-import sys
-import asyncio
 
 QR_NAMES = ("qr", "qrcode", "二维码")
 UNQR_NAMES = ("unqr", "解二维码", "识别二维码")
@@ -533,8 +530,6 @@ class QrCardPlugin(Star):
                 "· 引用一条含二维码图片的消息发送 /unqr，即可解析内容\n"
                 "· 也支持直接发送「图片 + unqr」\n"
                 "· 别名：解二维码、识别二维码\n"
-                "━━━━━━━━━━━━━━━━\n"
-                "· 如果识别失败或需要安装备用识别器（2个，更准，约60MB），发送 /unqr download 一键安装\n"
             )
             # 支持作者信息
             image_path = os.path.join(os.path.dirname(__file__), "赞r.png")
@@ -565,50 +560,9 @@ class QrCardPlugin(Star):
         yield event.chain_result([CompImage.fromFileSystem(path)])
 
     # ---------- 指令：/unqr ----------
-    @filter.command("unqr_download", alias={"下载解码器", "安装解码器"})
-    async def unqr_download(self, event: AstrMessageEvent):
-        """安装二维码解码依赖。"""
-        try:
-            yield event.plain_result("开始安装二维码解码依赖，可能需要一两分钟…")
-        except Exception:
-            pass
-        try:
-            proc = await asyncio.to_thread(
-                subprocess.run,
-                [sys.executable, "-m", "pip", "install", "--disable-pip-version-check",
-                 "qrcode[pil]", "zxing-cpp", "pyzbar", "opencv-python-headless"],
-                capture_output=True, text=True, timeout=600,
-            )
-            if proc.returncode == 0:
-                msg = "✅ 解码依赖安装完成。请重启插件或 AstrBot 后使用 /unqr。"
-            else:
-                tail = (proc.stderr or proc.stdout or "").strip().splitlines()[-5:]
-                msg = "❌ 安装失败：\n" + "\n".join(tail)
-            yield event.plain_result(msg)
-        except Exception as e:
-            yield event.plain_result(f"❌ 安装过程出错：{e}")
-
     @filter.command("unqr", alias={"解二维码", "识别二维码"})
     async def unqr_cmd(self, event: AstrMessageEvent):
         """解析二维码：引用一条含二维码图片的消息发送 /unqr"""
-        # /unqr download：安装解码依赖
-        arg = (self._extract_arg(event.message_str, UNQR_NAMES) or "").strip().lower()
-        if arg in ("download", "下载", "安装", "安装解码器", "下载解码器"):
-            yield event.plain_result("开始安装二维码解码依赖，可能需要一两分钟…")
-            try:
-                proc = await asyncio.to_thread(
-                    subprocess.run,
-                    [sys.executable, "-m", "pip", "install", "--disable-pip-version-check", "qrcode[pil]", "zxing-cpp", "pyzbar", "opencv-python-headless"],
-                    capture_output=True, text=True, timeout=600,
-                )
-                if proc.returncode == 0:
-                    yield event.plain_result("✅ 解码依赖安装完成。请重启插件或 AstrBot 后使用 /unqr。")
-                else:
-                    tail = (proc.stderr or proc.stdout or "").strip().splitlines()[-5:]
-                    yield event.plain_result("❌ 安装失败：\n" + "\n".join(tail))
-            except Exception as e:
-                yield event.plain_result(f"❌ 安装过程出错：{e}")
-            return
         images: List[CompImage] = self._collect_reply_images(event)
         if not images:
             # 兜底：图片和 unqr 同一条消息发送
@@ -644,10 +598,7 @@ class QrCardPlugin(Star):
                     all_texts.append(t)
 
         if not all_texts:
-            if not _has_any_decoder():
-                yield event.plain_result("识别失败，使用 /qr help 获取帮助")
-            else:
-                yield event.plain_result("没有从图片里识别出二维码，请确认图片清晰且包含二维码")
+            yield event.plain_result("没有从图片里识别出二维码，请确认图片清晰且包含二维码（解码依赖请通过 requirements.txt 安装）")
             return
         if len(all_texts) == 1:
             yield event.plain_result(f"{prefix}{all_texts[0]}")
@@ -872,9 +823,7 @@ class QrCardPlugin(Star):
                         all_texts.append(t)
 
             if not all_texts:
-                if not _has_any_decoder():
-                    return "识别失败，使用 /qr help 获取帮助"
-                return "没有从图片里识别出二维码，请确认图片清晰且包含二维码。"
+                return "没有从图片里识别出二维码，请确认图片清晰且包含二维码（解码依赖请通过 requirements.txt 安装）。"
             if len(all_texts) == 1:
                 return f"二维码内容：{all_texts[0]}"
             return "二维码内容（共 {} 条）：\n{}".format(
