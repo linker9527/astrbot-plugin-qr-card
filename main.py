@@ -49,6 +49,9 @@ MODE_ALIASES = {
     "geo": "geo", "location": "geo", "位置": "geo", "坐标": "geo",
 }
 
+# 关键字写在开头的模式：/qr wifi <名称> [密码] [hidden] 这类
+PREFIX_MODES = ("wifi", "tel", "sms", "mail", "card", "geo")
+
 HELP_TEXT = (
     "📖 /qr 二维码生成 · 用法\n"
     "━━━━━━━━━━━━━━━━\n"
@@ -183,7 +186,7 @@ def decode_qr_file(path: str) -> List[str]:
     "二维码卡片",
     "linker9527",
     "/qr 多模式生成二维码（文本/网页/WiFi/电话/短信/邮件/名片/位置）；引用图片发 /unqr 解析",
-    "1.0.1",
+    "1.1.0",
 )
 class QrCardPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig | dict | None = None):
@@ -222,9 +225,20 @@ class QrCardPlugin(Star):
                     # 只保留最近 5 张
                     while len(lst) > 5:
                         lst.pop(0)
+                    self._sweep_recent_images()
                     break
         except Exception:
             pass
+
+    def _sweep_recent_images(self):
+        """全表清扫：删除超过 10 分钟没有新图片的会话条目，防止 dict 无限增长。"""
+        now = time.time()
+        stale = [
+            key for key, lst in self._recent_images.items()
+            if not lst or now - lst[-1][0] >= 600
+        ]
+        for key in stale:
+            self._recent_images.pop(key, None)
 
     def _collect_reply_images(self, event: AstrMessageEvent) -> List[CompImage]:
         """从消息链的 Reply 组件里取被引用消息的图片。"""
@@ -347,8 +361,8 @@ class QrCardPlugin(Star):
         return tokens
 
     @staticmethod
-    def _wifi_escape(s: str) -> str:
-        """WIFI: 协议中需转义的字符： \\ ; , : \" """
+    def _spec_escape(s: str) -> str:
+        """WIFI:/MECARD: 协议中需转义的字符： \\ ; , : \" """
         s = (s or "").replace("\\", "\\\\")
         for ch in (";", ",", ":", '"'):
             s = s.replace(ch, "\\" + ch)
@@ -430,11 +444,11 @@ class QrCardPlugin(Star):
             name, tel = t[0], t[1]
             email = t[2] if len(t) > 2 else ""
             org = " ".join(t[3:]) if len(t) > 3 else ""
-            fields = [f"N:{name}", f"TEL:{tel}"]
+            fields = [f"N:{self._spec_escape(name)}", f"TEL:{self._spec_escape(tel)}"]
             if email:
-                fields.append(f"EMAIL:{email}")
+                fields.append(f"EMAIL:{self._spec_escape(email)}")
             if org:
-                fields.append(f"ORG:{org}")
+                fields.append(f"ORG:{self._spec_escape(org)}")
             return "MECARD:" + ";".join(fields) + ";;", None
 
         if mode == "geo":
@@ -472,13 +486,32 @@ class QrCardPlugin(Star):
         seg = ["WIFI:"]
         if password:
             seg.append("T:WPA;")
-        seg.append(f"S:{self._wifi_escape(ssid)};")
+        seg.append(f"S:{self._spec_escape(ssid)};")
         if password:
-            seg.append(f"P:{self._wifi_escape(password)};")
+            seg.append(f"P:{self._spec_escape(password)};")
         if hidden:
             seg.append("H:true;")
         seg.append(";")
         return "".join(seg), None
+
+    def _detect_mode(self, arg_str: str, tokens: List[str]) -> Tuple[Optional[str], str]:
+        """识别 /qr 的模式，返回 (模式名, 去掉模式关键字后的正文)。
+
+        优先按第一个分词匹配前缀式模式（wifi/tel/sms/mail/card/geo），
+        未命中再按末尾关键字匹配（page/txt/help）。
+        """
+        if not tokens:
+            return None, ""
+        first = MODE_ALIASES.get(tokens[0].lower())
+        if first in PREFIX_MODES:
+            rest = arg_str.split(None, 1)
+            return first, (rest[1].strip() if len(rest) > 1 else "")
+        mode = MODE_ALIASES.get(tokens[-1].lower())
+        if mode is not None:
+            body = arg_str.rstrip()
+            idx = body.rfind(tokens[-1])
+            return mode, (body[:idx].strip() if idx >= 0 else "")
+        return None, ""
 
     # ---------- 生成二维码 ----------
     def _make_qr_image(self, text: str) -> Optional[str]:
@@ -520,7 +553,7 @@ class QrCardPlugin(Star):
             arg_str = self._collect_reply_text(event)
 
         tokens = self._tokenize(arg_str)
-        mode = MODE_ALIASES.get(tokens[-1].lower()) if tokens else None
+        mode, mode_body = self._detect_mode(arg_str, tokens)
 
         if mode == "help" or not tokens:
             yield event.plain_result(HELP_TEXT)
@@ -543,11 +576,7 @@ class QrCardPlugin(Star):
             # 默认：整段当作纯文本
             payload, err = arg_str.strip(), None
         else:
-            # 去掉末尾的模式关键字后交给对应模式处理
-            body = arg_str.rstrip()
-            idx = body.rfind(tokens[-1])
-            body = body[:idx].strip() if idx >= 0 else ""
-            payload, err = self._build_payload(mode, body)
+            payload, err = self._build_payload(mode, mode_body)
 
         if err:
             yield event.plain_result(err)
@@ -668,9 +697,9 @@ class QrCardPlugin(Star):
             seg = ["WIFI:"]
             if password:
                 seg.append("T:WPA;")
-            seg.append(f"S:{self._wifi_escape(ssid)};")
+            seg.append(f"S:{self._spec_escape(ssid)};")
             if password:
-                seg.append(f"P:{self._wifi_escape(password)};")
+                seg.append(f"P:{self._spec_escape(password)};")
             if hidden:
                 seg.append("H:true;")
             seg.append(";")
@@ -756,11 +785,11 @@ class QrCardPlugin(Star):
             org(string): 单位/公司名称，可选
         """
         try:
-            fields = [f"N:{name}", f"TEL:{phone}"]
+            fields = [f"N:{self._spec_escape(name)}", f"TEL:{self._spec_escape(phone)}"]
             if email:
-                fields.append(f"EMAIL:{email}")
+                fields.append(f"EMAIL:{self._spec_escape(email)}")
             if org:
-                fields.append(f"ORG:{org}")
+                fields.append(f"ORG:{self._spec_escape(org)}")
             return await self._llm_send_qr(event, "MECARD:" + ";".join(fields) + ";;", "名片")
         except Exception as e:
             logger.error(f"[QR] LLM 工具异常: {e}")
